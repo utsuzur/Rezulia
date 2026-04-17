@@ -1530,6 +1530,44 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
 
                 if (isAnthropic) {
                     requestBody = convertOpenAIToAnthropic(requestBody, targetModelId);
+                } else if (inputFormat === 'openai' && typeof requestBody.cacheAtDepth === 'number') {
+                    if (isStreaming) {
+                        const errorResponse = {
+                            id: "chatcmpl-error",
+                            object: "chat.completion",
+                            created: Math.floor(Date.now() / 1000),
+                            model: requestedModelId,
+                            choices: [{
+                                index: 0,
+                                message: { role: "assistant", content: "cacheAtDepth can't be used with streaming enabled." },
+                                finish_reason: "stop"
+                            }],
+                            usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+                        };
+                        res.json(errorResponse);
+                        return;
+                    }
+                    // OpenAI-to-OpenAI: inject cache_control at the nth message from the end
+                    const depth = requestBody.cacheAtDepth as number;
+                    delete requestBody.cacheAtDepth;
+                    if (Array.isArray(requestBody.messages) && requestBody.messages.length > 0) {
+                        const idx = requestBody.messages.length - 1 - depth;
+                        if (idx >= 0) {
+                            const msg = { ...requestBody.messages[idx] };
+                            if (typeof msg.content === 'string') {
+                                msg.content = [{ type: 'text', text: msg.content, cache_control: { type: 'ephemeral' } }];
+                            } else if (Array.isArray(msg.content) && msg.content.length > 0) {
+                                const parts = [...msg.content];
+                                parts[parts.length - 1] = { ...parts[parts.length - 1], cache_control: { type: 'ephemeral' } };
+                                msg.content = parts;
+                            }
+                            const msgs = [...requestBody.messages];
+                            msgs[idx] = msg;
+                            requestBody.messages = msgs;
+                        }
+                    }
+                } else {
+                    delete requestBody.cacheAtDepth;
                 }
             }
 
@@ -1682,7 +1720,7 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                                     }
                                 } else {
                                     res.write(chunk);
-                                    
+
                                     for (const line of lines) {
                                         if (line.startsWith('data: ') && line !== 'data: [DONE]') {
                                             try {
@@ -1690,6 +1728,15 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                                                 if (json.usage) {
                                                     streamUsage.prompt_tokens = json.usage.prompt_tokens;
                                                     streamUsage.completion_tokens = json.usage.completion_tokens;
+                                                    if (json.usage.prompt_tokens_details) {
+                                                        streamUsage.cache_read_input_tokens = json.usage.prompt_tokens_details.cached_tokens || 0;
+                                                    }
+                                                    if (json.usage.cache_read_input_tokens != null) {
+                                                        streamUsage.cache_read_input_tokens = json.usage.cache_read_input_tokens;
+                                                    }
+                                                    if (json.usage.cache_creation_input_tokens != null) {
+                                                        streamUsage.cache_creation_input_tokens = json.usage.cache_creation_input_tokens;
+                                                    }
                                                 }
                                                 if (json.choices?.[0]?.delta?.content) {
                                                     accumulatedOutput += json.choices[0].delta.content;
@@ -1707,11 +1754,13 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                         res.end();
                         
                         try {
-                            const inputTokensBase = streamUsage.prompt_tokens || currentInputTokens;
                             const cacheRead = streamUsage.cache_read_input_tokens || 0;
                             const cacheWrite = streamUsage.cache_creation_input_tokens || 0;
+                            const rawInputTokens = streamUsage.prompt_tokens || currentInputTokens;
+                            // OpenAI/OpenRouter includes cache tokens inside prompt_tokens; subtract both to avoid double-counting
+                            const inputTokensBase = isAnthropic ? rawInputTokens : rawInputTokens - cacheRead - cacheWrite;
                             const outputTokens = streamUsage.completion_tokens || countTokens(accumulatedOutput, targetModelId, modelRow.providerType);
-                            
+
                             const totalInputTokens = inputTokensBase + cacheRead + cacheWrite;
                             
                             const inputPrice = modelRow.inputPricePer1k || 0;
@@ -1781,14 +1830,20 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
             }
             
             const usage = data.usage || {};
-            let inputTokensBase = usage.prompt_tokens || currentInputTokens;
-            let cacheRead = usage.cache_read_input_tokens || 0;
-            let cacheWrite = usage.cache_creation_input_tokens || 0;
+            let cacheRead = usage.cache_read_input_tokens || usage.prompt_tokens_details?.cached_tokens || 0;
+            let cacheWrite = usage.cache_creation_input_tokens || usage.prompt_tokens_details?.cache_write_tokens || 0;
+            let inputTokensBase: number;
 
             if (isAnthropic && inputFormat === 'anthropic') {
                 inputTokensBase = usage.input_tokens || 0;
                 cacheRead = usage.cache_read_input_tokens || 0;
                 cacheWrite = usage.cache_creation_input_tokens || 0;
+            } else if (isAnthropic) {
+                // Anthropic provider: input_tokens excludes cache tokens
+                inputTokensBase = usage.input_tokens || usage.prompt_tokens || currentInputTokens;
+            } else {
+                // OpenAI/OpenRouter: prompt_tokens includes both cache read and write; subtract both
+                inputTokensBase = (usage.prompt_tokens || currentInputTokens) - cacheRead - cacheWrite;
             }
 
             const totalInputTokens = inputTokensBase + cacheRead + cacheWrite;
