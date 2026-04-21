@@ -1508,6 +1508,9 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                         requestBody.max_tokens = modelRow.maxOutputTokens;
                     }
                 }
+                if (isStreaming && !isAnthropic) {
+                    requestBody.stream_options = { include_usage: true };
+                }
             } else {
                 // Enforce max output tokens
                 let finalMaxTokens = body.max_tokens;
@@ -1568,6 +1571,10 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                     }
                 } else {
                     delete requestBody.cacheAtDepth;
+                }
+
+                if (isStreaming && !isAnthropic) {
+                    requestBody.stream_options = { include_usage: true };
                 }
             }
 
@@ -1695,6 +1702,15 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                                                 if (json.usage) {
                                                     streamUsage.prompt_tokens = json.usage.prompt_tokens;
                                                     streamUsage.completion_tokens = json.usage.completion_tokens;
+                                                    if (json.usage.prompt_tokens_details) {
+                                                        streamUsage.cache_read_input_tokens = json.usage.prompt_tokens_details.cached_tokens || 0;
+                                                    }
+                                                    if (json.usage.cache_read_input_tokens != null) {
+                                                        streamUsage.cache_read_input_tokens = json.usage.cache_read_input_tokens;
+                                                    }
+                                                    if (json.usage.cache_creation_input_tokens != null) {
+                                                        streamUsage.cache_creation_input_tokens = json.usage.cache_creation_input_tokens;
+                                                    }
                                                 }
 
                                                 const content = json.choices?.[0]?.delta?.content || "";
@@ -1707,7 +1723,7 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                                                     };
                                                     res.write(`data: ${JSON.stringify(anthropicChunk)}\n\n`);
                                                 }
-                                                
+
                                                 if (json.choices?.[0]?.finish_reason) {
                                                     const anthropicStop = { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 0 } };
                                                     res.write(`data: ${JSON.stringify(anthropicStop)}\n\n`);
