@@ -41,7 +41,7 @@ export interface UserToken {
   isActive: boolean;
   isPrivate?: boolean;
   tokenType?: 'rpd' | 'credits';
-  tier?: 'standard' | 'plus';
+  tier?: 'standard' | 'plus' | 'true';
   creditBalance?: number;
 }
 

@@ -19,7 +19,7 @@ const ManageTokens: React.FC = () => {
   const [maxTokenUsage, setMaxTokenUsage] = useState<number | ''>('');
   const [maxCostUsage, setMaxCostUsage] = useState<number | ''>('');
   const [tokenType, setTokenType] = useState<'rpd' | 'credits'>('rpd');
-  const [tier, setTier] = useState<'standard' | 'plus'>('standard');
+  const [tier, setTier] = useState<'standard' | 'plus' | 'true'>('standard');
   const [creditBalance, setCreditBalance] = useState<number | ''>('');
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
@@ -320,20 +320,26 @@ const ManageTokens: React.FC = () => {
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">Pricing Tier</label>
                         <div className="flex gap-2">
-                            <button 
+                            <button
                                 onClick={() => setTier('standard')}
                                 className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${tier === 'standard' ? 'bg-reze-600 border-reze-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-reze-300'}`}
                             >
                                 Standard
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setTier('plus')}
                                 className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${tier === 'plus' ? 'bg-reze-600 border-reze-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-reze-300'}`}
                             >
                                 Plus
                             </button>
+                            <button
+                                onClick={() => setTier('true')}
+                                className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${tier === 'true' ? 'bg-reze-600 border-reze-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-reze-300'}`}
+                            >
+                                True
+                            </button>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1">Plus tier gets 80% pricing for cache reads.</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Plus: 80% cache reads. True: actual provider rates (10% cache reads).</p>
                     </div>
                   </div>
 

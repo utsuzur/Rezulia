@@ -30,7 +30,7 @@ interface TokenData {
   maxCostUsage: number | null;
   remainingRequestsToday: number | null;
   tokenType?: 'rpd' | 'credits';
-  tier?: 'standard' | 'plus';
+  tier?: 'standard' | 'plus' | 'true';
   creditBalance?: number;
   isActive: boolean;
   logs: Log[];

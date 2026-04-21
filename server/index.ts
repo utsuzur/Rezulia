@@ -1821,7 +1821,8 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                             const isExtendedTtl = req.body.extended_ttl === true || req.headers['x-extended-ttl'] === 'true';
                             
                             const normalInputCost = (inputTokensBase * inputPrice) / 1000;
-                            const cacheReadCost = (cacheRead * (tier === 'plus' ? 0.8 : 1.0) * inputPrice) / 1000;
+                            const cacheReadMultiplier = tier === 'true' ? 0.1 : tier === 'plus' ? 0.8 : 1.0;
+                            const cacheReadCost = (cacheRead * cacheReadMultiplier * inputPrice) / 1000;
                             const cacheWriteCost = (cacheWrite * (isExtendedTtl ? 2.0 : 1.25) * inputPrice) / 1000;
                             const outputCost = (outputTokens * outputPrice) / 1000;
                             
@@ -1908,7 +1909,8 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
             const isExtendedTtl = req.body.extended_ttl === true || req.headers['x-extended-ttl'] === 'true';
             
             const normalInputCost = (inputTokensBase * inputPrice) / 1000;
-            const cacheReadCost = (cacheRead * (tier === 'plus' ? 0.8 : 1.0) * inputPrice) / 1000;
+            const cacheReadMultiplier = tier === 'true' ? 0.1 : tier === 'plus' ? 0.8 : 1.0;
+            const cacheReadCost = (cacheRead * cacheReadMultiplier * inputPrice) / 1000;
             const cacheWriteCost = (cacheWrite * (isExtendedTtl ? 2.0 : 1.25) * inputPrice) / 1000;
             const outputCost = (outputTokens * outputPrice) / 1000;
             

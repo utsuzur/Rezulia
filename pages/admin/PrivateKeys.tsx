@@ -12,7 +12,7 @@ const PrivateKeys: React.FC = () => {
 
   // Private Token Form State
   const [newName, setNewName] = useState('');
-  const [newTier, setNewTier] = useState<'standard' | 'plus'>('standard');
+  const [newTier, setNewTier] = useState<'standard' | 'plus' | 'true'>('standard');
   const [newTokenType, setNewTokenType] = useState<'rpd' | 'credits'>('rpd');
   const [newDailyLimit, setNewDailyLimit] = useState('');
   const [newCreditBalance, setNewCreditBalance] = useState('');
@@ -20,7 +20,7 @@ const PrivateKeys: React.FC = () => {
 
   // Edit token state
   const [editingTokenId, setEditingTokenId] = useState<string | null>(null);
-  const [editTier, setEditTier] = useState<'standard' | 'plus'>('standard');
+  const [editTier, setEditTier] = useState<'standard' | 'plus' | 'true'>('standard');
   const [editTokenType, setEditTokenType] = useState<'rpd' | 'credits'>('rpd');
   const [editDailyLimit, setEditDailyLimit] = useState('');
   const [editCreditBalance, setEditCreditBalance] = useState('');
@@ -97,7 +97,7 @@ const PrivateKeys: React.FC = () => {
 
   const handleEditToken = (token: UserToken) => {
     setEditingTokenId(token.id);
-    setEditTier((token.tier as 'standard' | 'plus') || 'standard');
+    setEditTier((token.tier as 'standard' | 'plus' | 'true') || 'standard');
     setEditTokenType((token.tokenType as 'rpd' | 'credits') || 'rpd');
     setEditDailyLimit(token.maxRequestsPerDay ? String(token.maxRequestsPerDay) : '');
     setEditCreditBalance(token.creditBalance ? String(token.creditBalance) : '');
@@ -221,6 +221,7 @@ const PrivateKeys: React.FC = () => {
                               <select value={newTier} onChange={e => setNewTier(e.target.value as any)} className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none">
                                   <option value="standard">Standard</option>
                                   <option value="plus">Plus</option>
+                                  <option value="true">True</option>
                               </select>
                           </div>
                           <div>
@@ -270,7 +271,7 @@ const PrivateKeys: React.FC = () => {
                               <h3 className="font-bold text-slate-800 text-lg">{token.name}</h3>
                               <span className="text-xs bg-slate-200 px-2 py-0.5 rounded uppercase font-bold text-slate-600">Private</span>
                               <span className={`text-xs px-2 py-0.5 rounded uppercase font-bold ${
-                                  token.tier === 'plus' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'
+                                  token.tier === 'true' ? 'bg-green-100 text-green-700' : token.tier === 'plus' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'
                               }`}>{token.tier || 'standard'}</span>
                               <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded uppercase font-bold">
                                   {token.tokenType === 'credits' ? `$${(token.creditBalance || 0).toFixed(2)} credits` : `RPD${token.maxRequestsPerDay ? `: ${token.maxRequestsPerDay}/day` : ': unlimited'}`}
@@ -291,6 +292,7 @@ const PrivateKeys: React.FC = () => {
                                       <select value={editTier} onChange={e => setEditTier(e.target.value as any)} className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none text-sm">
                                           <option value="standard">Standard</option>
                                           <option value="plus">Plus</option>
+                                          <option value="true">True</option>
                                       </select>
                                   </div>
                                   <div>
