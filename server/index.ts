@@ -1629,7 +1629,7 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                             const { done, value } = await reader.read();
                             if (done) break;
                             const chunk = decoder.decode(value, { stream: true });
-                            
+
                             const fullChunk = lineBuffer + chunk;
                             const lines = fullChunk.split('\n');
                             lineBuffer = lines.pop() || "";
@@ -1648,12 +1648,12 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                                             if (anthropicEvent.type === 'message_start') {
                                                 const usage = anthropicEvent.message?.usage;
                                                 if (usage) {
-                                                    streamUsage.prompt_tokens = usage.input_tokens || 0;
-                                                    streamUsage.cache_read_input_tokens = usage.cache_read_input_tokens || 0;
-                                                    streamUsage.cache_creation_input_tokens = usage.cache_creation_input_tokens || 0;
+                                                    streamUsage.prompt_tokens = usage.input_tokens ?? 0;
+                                                    streamUsage.cache_read_input_tokens = usage.cache_read_input_tokens ?? 0;
+                                                    streamUsage.cache_creation_input_tokens = usage.cache_creation_input_tokens ?? 0;
                                                 }
                                             } else if (anthropicEvent.type === 'message_delta') {
-                                                if (anthropicEvent.usage?.output_tokens) {
+                                                if (anthropicEvent.usage?.output_tokens != null) {
                                                     streamUsage.completion_tokens = anthropicEvent.usage.output_tokens;
                                                 }
                                             }
@@ -1703,7 +1703,7 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                                                     streamUsage.prompt_tokens = json.usage.prompt_tokens;
                                                     streamUsage.completion_tokens = json.usage.completion_tokens;
                                                     if (json.usage.prompt_tokens_details) {
-                                                        streamUsage.cache_read_input_tokens = json.usage.prompt_tokens_details.cached_tokens || 0;
+                                                        streamUsage.cache_read_input_tokens = json.usage.prompt_tokens_details.cached_tokens ?? 0;
                                                     }
                                                     if (json.usage.cache_read_input_tokens != null) {
                                                         streamUsage.cache_read_input_tokens = json.usage.cache_read_input_tokens;
@@ -1745,7 +1745,7 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                                                     streamUsage.prompt_tokens = json.usage.prompt_tokens;
                                                     streamUsage.completion_tokens = json.usage.completion_tokens;
                                                     if (json.usage.prompt_tokens_details) {
-                                                        streamUsage.cache_read_input_tokens = json.usage.prompt_tokens_details.cached_tokens || 0;
+                                                        streamUsage.cache_read_input_tokens = json.usage.prompt_tokens_details.cached_tokens ?? 0;
                                                     }
                                                     if (json.usage.cache_read_input_tokens != null) {
                                                         streamUsage.cache_read_input_tokens = json.usage.cache_read_input_tokens;
@@ -1763,19 +1763,53 @@ async function handleChatRequest(req: express.Request, res: express.Response, in
                                 }
                             }
                         }
+
+                        // Flush any remaining data in lineBuffer for usage capture
+                        if (lineBuffer.trim()) {
+                            const remainingLines = lineBuffer.split('\n');
+                            for (const line of remainingLines) {
+                                if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
+                                try {
+                                    const json = JSON.parse(line.substring(6));
+                                    if (isAnthropic) {
+                                        if (json.type === 'message_start' && json.message?.usage) {
+                                            streamUsage.prompt_tokens = json.message.usage.input_tokens ?? 0;
+                                            streamUsage.cache_read_input_tokens = json.message.usage.cache_read_input_tokens ?? 0;
+                                            streamUsage.cache_creation_input_tokens = json.message.usage.cache_creation_input_tokens ?? 0;
+                                        } else if (json.type === 'message_delta' && json.usage?.output_tokens != null) {
+                                            streamUsage.completion_tokens = json.usage.output_tokens;
+                                        }
+                                    } else {
+                                        if (json.usage) {
+                                            streamUsage.prompt_tokens = json.usage.prompt_tokens;
+                                            streamUsage.completion_tokens = json.usage.completion_tokens;
+                                            if (json.usage.prompt_tokens_details) {
+                                                streamUsage.cache_read_input_tokens = json.usage.prompt_tokens_details.cached_tokens ?? 0;
+                                            }
+                                            if (json.usage.cache_read_input_tokens != null) {
+                                                streamUsage.cache_read_input_tokens = json.usage.cache_read_input_tokens;
+                                            }
+                                            if (json.usage.cache_creation_input_tokens != null) {
+                                                streamUsage.cache_creation_input_tokens = json.usage.cache_creation_input_tokens;
+                                            }
+                                        }
+                                    }
+                                } catch (e) {}
+                            }
+                        }
                     } catch (error) {
                         res.end();
                     } finally {
                         if (inputFormat === 'openai' && !isAnthropic) res.write('data: [DONE]\n\n');
                         res.end();
-                        
+
                         try {
-                            const cacheRead = streamUsage.cache_read_input_tokens || 0;
-                            const cacheWrite = streamUsage.cache_creation_input_tokens || 0;
-                            const rawInputTokens = streamUsage.prompt_tokens || currentInputTokens;
+                            const cacheRead = streamUsage.cache_read_input_tokens ?? 0;
+                            const cacheWrite = streamUsage.cache_creation_input_tokens ?? 0;
+                            const rawInputTokens = streamUsage.prompt_tokens ?? currentInputTokens;
                             // OpenAI/OpenRouter includes cache tokens inside prompt_tokens; subtract both to avoid double-counting
                             const inputTokensBase = isAnthropic ? rawInputTokens : rawInputTokens - cacheRead - cacheWrite;
-                            const outputTokens = streamUsage.completion_tokens || countTokens(accumulatedOutput, targetModelId, modelRow.providerType);
+                            const outputTokens = streamUsage.completion_tokens ?? countTokens(accumulatedOutput, targetModelId, modelRow.providerType);
 
                             const totalInputTokens = inputTokensBase + cacheRead + cacheWrite;
                             
