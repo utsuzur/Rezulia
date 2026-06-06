@@ -4,13 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite\" \"PORT=3001 nodemon --exec ts-node --esm server/index.ts\"",
+    "dev": "concurrently \"vite --port 5000\" \"PORT=3001 nodemon --exec tsx server/index.ts\"",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "nodemon --exec ts-node --esm server/index.ts",
-    "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "server": "PORT=3001 nodemon --exec ts-node --esm server/index.ts",
+    "start": "node dist/server/index.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -37,9 +35,9 @@
     "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^9.2.1",
     "dotenv": "^17.2.3",
-    "drizzle-kit": "^0.18.1",
     "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
+    "tsx": "^4.22.4",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }
